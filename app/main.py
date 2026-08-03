@@ -15,13 +15,11 @@ from app.core.logger import logger
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Pre-load OCR engine saat startup agar request pertama tidak lambat."""
-    from app.core.config import settings
-    engine = settings.ocr_engine.upper()
-    logger.info(f"🚀 Kainest Receipt AI Service sedang starting up... (Engine: {engine})")
+    logger.info("🚀 Kainest Receipt AI Service sedang starting up... (Engine: RAPIDOCR)")
     try:
         from app.services.ocr_service import warmup_ocr
         warmup_ocr()
-        logger.info(f"✅ OCR Engine '{engine}' berhasil dimuat.")
+        logger.info("✅ OCR Engine 'RAPIDOCR' berhasil dimuat.")
     except Exception as e:
         logger.warning(f"⚠️ Gagal pre-load OCR engine: {e}. Model akan dimuat pada request pertama.")
     yield
@@ -32,8 +30,7 @@ app = FastAPI(
     title="Kainest Receipt AI Service",
     description=(
         "## 🧾 Kainest Receipt AI Service & Split Bill Engine\n\n"
-        "Service independen untuk:\n"
-        "- **Scan & Extract** foto struk belanja menggunakan RapidOCR (ONNX) / Surya OCR + Groq LLM\n"
+        "- **Scan & Extract** foto struk belanja menggunakan RapidOCR (ONNX) + Groq LLM\n"
         "- **Split Bill** (Itemized atau Bagi Rata) dengan alokasi pajak proporsional\n\n"
         "Dokumentasi alur lengkap tersedia di `AGENTS.md` dan `docs/flow_diagram.png`."
     ),
