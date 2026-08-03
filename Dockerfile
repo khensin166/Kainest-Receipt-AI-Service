@@ -2,17 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies untuk OpenCV
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+# Install system dependencies untuk OpenCV (use runtime packages available on slim)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
     && rm -rf /var/lib/apt/lists/*
-
-# Install PyTorch CPU-only terlebih dahulu (lebih ringan)
-RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Copy dan install requirements
 COPY requirements.txt .
