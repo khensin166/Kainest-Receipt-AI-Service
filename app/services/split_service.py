@@ -52,6 +52,9 @@ def calculate_split_itemized(req: SplitBillRequest) -> SplitBillData:
             member_items[member].append(f"{assignment.item_name} {share_label}".strip())
 
     total_item_subtotal = sum(member_subtotals.values()) or 1  # Hindari division by zero
+    
+    # Hitung selisih biaya tersembunyi (misal ongkir/packaging) yang tidak masuk ke tax/service tapi ada di total
+    unallocated_fee = req.total - (total_item_subtotal + req.tax + req.service - req.discount)
 
     breakdown: list[MemberBreakdown] = []
     for member in members:
@@ -61,7 +64,10 @@ def calculate_split_itemized(req: SplitBillRequest) -> SplitBillData:
         prop_tax = round(req.tax * ratio)
         prop_service = round(req.service * ratio)
         prop_discount = round(req.discount * ratio)
-        total_to_pay = sub + prop_tax + prop_service - prop_discount
+        prop_unallocated = round(unallocated_fee * ratio)
+        
+        # total_to_pay mencakup subtotal, pajak, service, diskon, dan proporsi biaya tersembunyi
+        total_to_pay = sub + prop_tax + prop_service - prop_discount + prop_unallocated
 
         breakdown.append(MemberBreakdown(
             member_name=member,
