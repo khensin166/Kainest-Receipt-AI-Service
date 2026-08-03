@@ -10,5 +10,10 @@ class Settings(BaseSettings):
     max_image_size_mb: int = 10
     log_level: str = "INFO"
 
+    # API Security
+    api_token: str = "dev_token_123"
+    docs_username: str = "admin"
+    docs_password: str = "admin"
+
 
 settings = Settings()

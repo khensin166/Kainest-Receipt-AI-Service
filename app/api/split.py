@@ -1,9 +1,14 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.request import SplitBillRequest
 from app.models.response import SplitBillResponse
 from app.services.split_service import calculate_split
+from app.core.security import verify_api_token
 
-router = APIRouter(prefix="/receipt", tags=["Split Bill"])
+router = APIRouter(
+    prefix="/receipt",
+    tags=["Split Bill"],
+    dependencies=[Depends(verify_api_token)]
+)
 
 
 @router.post(

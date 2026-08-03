@@ -37,6 +37,9 @@ app = FastAPI(
     version="1.0.0",
     contact={"name": "Kainest Team", "url": "https://kainest.kenantomfie.com"},
     lifespan=lifespan,
+    docs_url=None,     # Disable default docs
+    redoc_url=None,    # Disable default redoc
+    openapi_url=None,  # Disable default openapi.json
 )
 
 # CORS — izinkan frontend Kainest dan development lokal
@@ -68,3 +71,22 @@ app.include_router(split.router)
 @app.get("/", include_in_schema=False)
 async def root():
     return {"message": "Kainest Receipt AI Service", "docs": "/docs", "health": "/health"}
+
+
+# --- Protected Swagger Documentation ---
+from fastapi import Depends
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.openapi.utils import get_openapi
+from app.core.security import verify_docs_auth
+
+@app.get("/docs", include_in_schema=False)
+async def get_swagger_documentation(username: str = Depends(verify_docs_auth)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
+
+@app.get("/redoc", include_in_schema=False)
+async def get_redoc_documentation(username: str = Depends(verify_docs_auth)):
+    return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
+
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi(username: str = Depends(verify_docs_auth)):
+    return get_openapi(title=app.title, version=app.version, routes=app.routes)

@@ -28,6 +28,9 @@
           TEMP_FOLDER=uploads
           MAX_IMAGE_SIZE_MB=10
           LOG_LEVEL=INFO
+          API_TOKEN={{ api_token }}
+          DOCS_USERNAME={{ docs_username }}
+          DOCS_PASSWORD={{ docs_password }}
         dest: "{{ project_dir }}/.env"
         mode: '0600'
       no_log: true

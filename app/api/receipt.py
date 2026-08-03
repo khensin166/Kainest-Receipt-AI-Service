@@ -1,8 +1,13 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
 from app.models.response import ReceiptScanResponse
 from app.services.receipt_service import process_receipt_pipeline
+from app.core.security import verify_api_token
 
-router = APIRouter(prefix="/receipt", tags=["Receipt"])
+router = APIRouter(
+    prefix="/receipt",
+    tags=["Receipt"],
+    dependencies=[Depends(verify_api_token)]
+)
 
 
 @router.post(
@@ -11,11 +16,11 @@ router = APIRouter(prefix="/receipt", tags=["Receipt"])
     summary="Scan Struk Belanja",
     description=(
         "Upload foto struk belanja (JPG, PNG, WEBP, HEIC). "
-        "Service akan menjalankan OCR menggunakan Surya, lalu mem-parsing hasilnya "
+        "Service akan menjalankan OCR menggunakan RapidOCR, lalu mem-parsing hasilnya "
         "dengan Groq LLM menjadi JSON terstruktur beserta confidence score."
     ),
 )
 async def scan_receipt(
-    image: UploadFile = File(..., description="File gambar struk belanja (JPG/PNG/WEBP/HEIC, maks 10MB)")
+    image: UploadFile = File(..., description="File gambar struk belanja (JPG/PNG/WEBP/HEIC/PDF, maks 10MB)")
 ):
     return await process_receipt_pipeline(image)

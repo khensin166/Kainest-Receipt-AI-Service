@@ -91,4 +91,7 @@ jobs:
           
           ansible-playbook -i inventory.ini deploy/ansible/deploy.yml \
             -e "target_image=${TARGET_IMAGE}" \
-            -e "groq_api_key=${{ secrets.GROQ_API_KEY }}"
+            -e "groq_api_key=${{ secrets.GROQ_API_KEY }}" \
+            -e "api_token=${{ vars.API_TOKEN }}" \
+            -e "docs_username=${{ vars.DOCS_USERNAME }}" \
+            -e "docs_password=${{ vars.DOCS_PASSWORD }}"
