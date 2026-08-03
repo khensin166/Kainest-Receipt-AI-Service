@@ -45,7 +45,13 @@ app = FastAPI(
 # CORS — izinkan frontend Kainest dan development lokal
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ganti dengan domain spesifik di production
+    allow_origins=[
+        "https://kainest.kenantomfie.com",
+        "https://staging.kainest.kenantomfie.com",
+        "http://localhost",
+        "http://localhost:5173", # untuk vue dev
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
