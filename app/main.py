@@ -51,6 +51,8 @@ app.add_middleware(
         "http://localhost",
         "http://localhost:5173", # untuk vue dev
         "http://localhost:3000",
+        "https://staging.kainest-be.v.kenantomfie.com",
+        "https://kainest-be.v.kenantomfie.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
