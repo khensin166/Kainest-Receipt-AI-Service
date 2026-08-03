@@ -1,0 +1,94 @@
+name: Kainest Receipt AI Service CI/CD
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - 'docker-compose.deploy.yml'
+      - 'deploy/**'
+      - '.github/workflows/kainest-receipt-ai-cicd.yml'
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build_image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Set Image Tag (Commit SHA)
+        id: set_tag
+        run: echo "TAG=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy_to_server:
+    needs: build_image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: sudo apt-get update && sudo apt-get install -y ansible sshpass
+
+      - name: Setup SSH Key & Ansible Inventory
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ vars.VPS_IP }} >> ~/.ssh/known_hosts
+          
+          # Buat file inventory sementara
+          echo "[webservers]" > inventory.ini
+          echo "${{ vars.VPS_IP }} ansible_user=${{ vars.VPS_USER }} ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+
+      - name: Run Ansible Playbook
+        run: |
+          IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          TARGET_IMAGE="${{ env.REGISTRY }}/${IMAGE_NAME}:latest"
+          
+          ansible-playbook -i inventory.ini deploy/ansible/deploy.yml \
+            -e "target_image=${TARGET_IMAGE}" \
+            -e "groq_api_key=${{ secrets.GROQ_API_KEY }}"

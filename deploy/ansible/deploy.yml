@@ -1,0 +1,71 @@
+---
+- name: Kainest Receipt AI Service - Deploy & Force Update
+  hosts: webservers
+  become: yes
+  become_method: sudo
+  become_user: root
+  vars:
+    project_dir: "/opt/kainest-receipt-ai"
+    
+  tasks:
+    - name: Membuat folder proyek di server target
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Menyalin file docker-compose.deploy.yml ke server target
+      copy:
+        src: ../../docker-compose.deploy.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+
+    - name: Generate file .env di server target
+      copy:
+        content: |
+          TARGET_IMAGE={{ target_image }}
+          GROQ_API_KEY={{ groq_api_key }}
+          GROQ_MODEL=llama-3.3-70b-versatile
+          TEMP_FOLDER=uploads
+          MAX_IMAGE_SIZE_MB=10
+          LOG_LEVEL=INFO
+        dest: "{{ project_dir }}/.env"
+        mode: '0600'
+      no_log: true
+    
+    - name: Memastikan jaringan global 'kainest_net' tersedia
+      command: docker network create kainest_net
+      register: network_result
+      failed_when: 
+        - network_result.rc != 0
+        - "'already exists' not in network_result.stderr"
+      changed_when: network_result.rc == 0
+
+    - name: Memaksa pembaruan (Pull & Up) Docker Compose
+      command: docker compose up -d --pull always --force-recreate --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      register: compose_result
+      failed_when: compose_result.rc != 0
+      ignore_errors: yes
+
+    - name: Debug Docker Compose Output (Jika Gagal)
+      debug:
+        msg: |
+          STDOUT: {{ compose_result.stdout }}
+          STDERR: {{ compose_result.stderr }}
+      when: compose_result.rc != 0
+
+    - name: Fail jika Docker Compose Gagal
+      fail:
+        msg: "Deployment gagal pada tahapan Docker Compose."
+      when: compose_result.rc != 0
+
+    - name: Hapus image lama yang tidak terpakai (Prune)
+      command: docker image prune -f
+
+    - name: Verifikasi Container Berjalan
+      command: "docker inspect kainest-receipt-ai --format='{{ '{{' }}.State.Status{{ '}}' }}'"
+      register: container_status
+      retries: 5
+      delay: 5
+      until: container_status.stdout == "running"

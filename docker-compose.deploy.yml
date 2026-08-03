@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  kainest-receipt-ai:
+    image: ${TARGET_IMAGE}
+    container_name: kainest-receipt-ai
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    networks:
+      - kainest_net
+    # Jika perlu mapping logs ke host:
+    # volumes:
+    #   - ./logs:/app/logs
+
+networks:
+  kainest_net:
+    external: true
