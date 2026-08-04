@@ -32,7 +32,7 @@ def test_total_mismatch_triggers_warning():
     result = validate_receipt(parsed)
     assert result["is_valid"] is False
     assert len(result["warnings"]) > 0
-    assert parsed["total"] == 11000  # Auto-corrected
+
 
 
 def test_item_qty_price_mismatch_autocorrect():

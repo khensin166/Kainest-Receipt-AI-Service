@@ -53,8 +53,12 @@ def calculate_split_itemized(req: SplitBillRequest) -> SplitBillData:
 
     total_item_subtotal = sum(member_subtotals.values()) or 1  # Hindari division by zero
     
-    # Hitung selisih biaya tersembunyi (misal ongkir/packaging) yang tidak masuk ke tax/service tapi ada di total
-    unallocated_fee = req.total - (total_item_subtotal + req.tax + req.service - req.discount)
+    # Jika total tidak pas (karena pembulatan atau other_fees tidak dikirim), hitung selisihnya sebagai fallback
+    explicit_other_fees = req.other_fees
+    calc_without_other = total_item_subtotal + req.tax + req.service - req.discount
+    # Gunakan other_fees eksplisit jika ada, jika tidak fallback ke selisih dari total
+    if explicit_other_fees == 0 and req.total > calc_without_other:
+        explicit_other_fees = req.total - calc_without_other
 
     breakdown: list[MemberBreakdown] = []
     for member in members:
@@ -63,11 +67,11 @@ def calculate_split_itemized(req: SplitBillRequest) -> SplitBillData:
 
         prop_tax = round(req.tax * ratio)
         prop_service = round(req.service * ratio)
+        prop_other_fees = round(explicit_other_fees * ratio)
         prop_discount = round(req.discount * ratio)
-        prop_unallocated = round(unallocated_fee * ratio)
         
-        # total_to_pay mencakup subtotal, pajak, service, diskon, dan proporsi biaya tersembunyi
-        total_to_pay = sub + prop_tax + prop_service - prop_discount + prop_unallocated
+        # total_to_pay mencakup subtotal, pajak, service, other_fees, dan dikurangi diskon proporsional
+        total_to_pay = sub + prop_tax + prop_service + prop_other_fees - prop_discount
 
         breakdown.append(MemberBreakdown(
             member_name=member,
@@ -104,7 +108,7 @@ def calculate_split_equal(req: SplitBillRequest) -> SplitBillData:
             items=["Semua item (bagi rata)"],
             item_subtotal=round(req.subtotal / n),
             proportional_tax=round(req.tax / n),
-            proportional_service=round(req.service / n),
+            proportional_service=round((req.service + req.other_fees) / n),
             proportional_discount=round(req.discount / n),
             total_to_pay=total_to_pay,
         ))

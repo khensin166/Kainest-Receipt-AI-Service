@@ -46,19 +46,28 @@ def validate_receipt(parsed: dict) -> dict:
             item["total_price"] = expected  # Auto-fix
 
     # 3. Cek subtotal ≈ sum item total_price
+    # Khusus receipt fisik biasa, kita auto-koreksi. Untuk Grab/Order Online yang items-nya mungkin hanya terpotong di gambar, jangan timpa subtotal jika subtotal terdaftar jelas.
     calc_subtotal = sum(item.get("total_price") or 0 for item in items)
+    doc_type = parsed.get("document_type", "receipt")
+    
     if items and abs(calc_subtotal - subtotal) > VALIDATION_TOLERANCE_IDR:
-        warnings.append(
-            f"Subtotal ({subtotal:,}) tidak cocok dengan jumlah item ({calc_subtotal:,}). "
-            f"Melakukan auto-koreksi subtotal."
-        )
-        parsed["subtotal"] = calc_subtotal
-        subtotal = calc_subtotal
+        if subtotal == 0 or doc_type == "receipt":
+            warnings.append(
+                f"Subtotal ({subtotal:,}) tidak cocok dengan jumlah item ({calc_subtotal:,}). "
+                f"Melakukan auto-koreksi subtotal."
+            )
+            parsed["subtotal"] = calc_subtotal
+            subtotal = calc_subtotal
+        else:
+            warnings.append(
+                f"Subtotal tertera ({subtotal:,}) berbeda dari total items terdeteksi ({calc_subtotal:,}). "
+                f"Beberapa item mungkin tidak terlihat pada gambar."
+            )
 
     # 4. Cek total ≈ subtotal + tax + service + other_fees - discount
     calc_total = subtotal + tax + service + other_fees - discount
-    if abs(calc_total - total) > VALIDATION_TOLERANCE_IDR:
-        if calc_total < total and (total - calc_total) < (subtotal * 0.5):
+    if total > 0 and abs(calc_total - total) > VALIDATION_TOLERANCE_IDR:
+        if calc_total < total and (total - calc_total) < max(subtotal * 0.5, 50000):
             # Kemungkinan besar LLM gagal mengekstrak biaya tambahan (tax/service/other_fees)
             diff = total - calc_total
             warnings.append(
@@ -66,8 +75,8 @@ def validate_receipt(parsed: dict) -> dict:
                 f"Asumsi ada biaya terlewat oleh AI. Auto-koreksi other_fees (+{diff:,})."
             )
             parsed["other_fees"] = other_fees + diff
-        elif calc_total > total and (calc_total - total) < (subtotal * 0.5):
-            # Kemungkinan besar LLM gagal mengekstrak diskon tambahan (seperti A-Poin, promo)
+        elif calc_total > total and (calc_total - total) < max(subtotal * 0.5, 50000):
+            # Kemungkinan besar LLM gagal mengekstrak diskon tambahan (seperti promo/voucher)
             diff = calc_total - total
             warnings.append(
                 f"Total ({total:,}) < kalkulasi item ({calc_total:,}). "
@@ -75,12 +84,13 @@ def validate_receipt(parsed: dict) -> dict:
             )
             parsed["discount"] = discount + diff
         else:
-            # Jika selisihnya sangat ekstrem, kemungkinan 'total' salah baca
+            # Jika selisihnya sangat ekstrem dan total terbaca jelas, pertahankan total tertera
             warnings.append(
-                f"Total ({total:,}) tidak masuk akal dibandingkan kalkulasi ({calc_total:,}). "
-                f"Melakukan auto-koreksi total."
+                f"Total tertera ({total:,}) berbeda dari kalkulasi ({calc_total:,})."
             )
-            parsed["total"] = calc_total
+    elif total == 0 and calc_total > 0:
+        parsed["total"] = calc_total
+
 
     is_valid = len(warnings) == 0
     if warnings:

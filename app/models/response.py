@@ -29,6 +29,7 @@ class CycleInfo(BaseModel):
 # ===========================================================================
 
 class ReceiptData(BaseModel):
+    document_type: str | None = "receipt"
     merchant: str | None = None
     date: str | None = None
     time: str | None = None

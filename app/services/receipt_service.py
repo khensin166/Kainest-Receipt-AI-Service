@@ -100,6 +100,7 @@ async def process_receipt_pipeline(file: UploadFile) -> ReceiptScanResponse:
         combined_confidence = round((ocr_confidence + llm_confidence) / 2, 3)
 
         receipt_data = ReceiptData(
+            document_type=parsed.get("document_type") or "receipt",
             merchant=parsed.get("merchant"),
             date=parsed.get("date"),
             time=parsed.get("time"),

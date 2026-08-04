@@ -19,6 +19,7 @@ class SplitBillRequest(BaseModel):
     subtotal: int = Field(..., ge=0)
     tax: int = Field(0, ge=0)
     service: int = Field(0, ge=0)
+    other_fees: int = Field(0, ge=0, description="Biaya ongkir, platform fee, dll yang dialokasikan proporsional")
     discount: int = Field(0, ge=0)
     total: int = Field(..., ge=0)
     members: list[str] = Field(..., min_length=2, description="Daftar nama anggota (min. 2 orang)")
@@ -26,3 +27,4 @@ class SplitBillRequest(BaseModel):
         None,
         description="Diperlukan jika mode='itemized'. Daftar assignment item ke anggota."
     )
+
