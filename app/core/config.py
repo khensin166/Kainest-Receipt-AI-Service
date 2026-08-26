@@ -5,7 +5,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    # Daftar model yang dirotasi otomatis (fallback). Pisahkan dengan koma.
+    # Prioritas: gpt-oss-120b → gpt-oss-20b → gpt-oss-safeguard-20b
+    groq_models: str = "openai/gpt-oss-120b,openai/gpt-oss-20b,openai/gpt-oss-safeguard-20b"
+    groq_base_url: str = ""  # Opsional: override endpoint (e.g. OmniRoute/OpenRouter)
     temp_folder: str = "uploads"
     max_image_size_mb: int = 10
     log_level: str = "INFO"

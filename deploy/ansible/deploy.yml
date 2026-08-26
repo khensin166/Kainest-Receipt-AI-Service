@@ -24,7 +24,8 @@
         content: |
           TARGET_IMAGE={{ target_image }}
           GROQ_API_KEY={{ groq_api_key }}
-          GROQ_MODEL=llama-3.3-70b-versatile
+          GROQ_MODELS={{ groq_models | default('openai/gpt-oss-120b,openai/gpt-oss-20b,openai/gpt-oss-safeguard-20b') }}
+          GROQ_BASE_URL={{ groq_base_url | default('') }}
           TEMP_FOLDER=uploads
           MAX_IMAGE_SIZE_MB=10
           LOG_LEVEL=INFO
