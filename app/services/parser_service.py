@@ -1,6 +1,7 @@
 """
 Parser Service — Mengirim teks OCR ke Groq API dan mengekstrak JSON terstruktur.
 Menggunakan mekanisme fallback model otomatis (identik dengan Kainest Backend).
+Model gpt-oss-120b adalah reasoning model: wajib stream=True + max_completion_tokens.
 """
 
 import json
@@ -18,11 +19,8 @@ from app.services.ocr_service import OCRResult
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "receipt_parser.md"
 _PROMPT_TEMPLATE: str = _PROMPT_PATH.read_text(encoding="utf-8")
 
-# Groq client — dibuat sekali, arahkan ke base_url jika dikonfigurasi (e.g. OmniRoute)
-_groq_client = Groq(
-    api_key=settings.groq_api_key,
-    base_url=settings.groq_base_url or None,
-)
+# Groq client — dibuat sekali, membaca GROQ_API_KEY dari env secara otomatis
+_groq_client = Groq(api_key=settings.groq_api_key)
 
 # Daftar model yang akan dicoba secara berurutan (fallback otomatis).
 # Dibaca dari env GROQ_MODELS (comma-separated), fallback ke default jika kosong.
@@ -34,7 +32,7 @@ FALLBACK_MODELS: list[str] = [
 
 
 def _extract_json_from_response(text: str) -> dict:
-    """Ekstrak JSON dari respons Groq (handle jika masih dibungkus markdown code block)."""
+    """Ekstrak JSON dari respons LLM (handle jika masih dibungkus markdown code block)."""
     # Hapus blok ```json ... ``` jika ada
     text = re.sub(r"```(?:json)?\s*", "", text).strip()
     text = re.sub(r"```\s*$", "", text).strip()
@@ -45,6 +43,7 @@ def _call_llm_with_fallback(prompt: str) -> tuple[str, str]:
     """
     Kirim prompt ke LLM dengan mekanisme fallback model otomatis.
     Identik dengan pola groqService.ts di Kainest Backend.
+    Menggunakan stream=True agar tidak timeout saat model reasoning berpikir.
 
     Returns:
         (raw_output, model_used)
@@ -55,23 +54,32 @@ def _call_llm_with_fallback(prompt: str) -> tuple[str, str]:
 
     for model_name in FALLBACK_MODELS:
         try:
-            current_base_url = getattr(_groq_client, "base_url", "https://api.groq.com/openai/v1 (default)")
-            logger.debug(f"[ParserService] Mencoba model: {model_name} via {current_base_url}")
-            response = _groq_client.chat.completions.create(
+            logger.debug(f"[ParserService] Mencoba model: {model_name}")
+
+            completion = _groq_client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,  # Deterministic untuk task ekstraksi data
-                max_tokens=2048,
+                temperature=1,
+                max_completion_tokens=2048,
+                top_p=1,
+                reasoning_effort="medium",
+                stream=True,
+                stop=None,
             )
-            raw_output = response.choices[0].message.content or ""
+
+            # Gabungkan semua chunk streaming menjadi satu string utuh
+            raw_output = ""
+            for chunk in completion:
+                delta_content = chunk.choices[0].delta.content or ""
+                raw_output += delta_content
+
             logger.info(f"[ParserService] ✅ Berhasil menggunakan model: {model_name}")
             return raw_output, model_name
 
         except Exception as exc:
-            current_base_url = getattr(_groq_client, "base_url", "unknown_url")
             logger.warning(
-                f"[ParserService] ⚠️ Model {model_name} gagal di-hit pada URL {current_base_url}. "
-                f"Mencoba selanjutnya... ({type(exc).__name__}: {exc})"
+                f"[ParserService] ⚠️ Model {model_name} gagal, mencoba selanjutnya... "
+                f"({type(exc).__name__}: {exc})"
             )
             last_error = exc
 
