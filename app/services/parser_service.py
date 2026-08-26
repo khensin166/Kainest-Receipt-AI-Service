@@ -55,7 +55,8 @@ def _call_llm_with_fallback(prompt: str) -> tuple[str, str]:
 
     for model_name in FALLBACK_MODELS:
         try:
-            logger.debug(f"[ParserService] Mencoba model: {model_name}")
+            current_base_url = getattr(_groq_client, "base_url", "https://api.groq.com/openai/v1 (default)")
+            logger.debug(f"[ParserService] Mencoba model: {model_name} via {current_base_url}")
             response = _groq_client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -67,9 +68,10 @@ def _call_llm_with_fallback(prompt: str) -> tuple[str, str]:
             return raw_output, model_name
 
         except Exception as exc:
+            current_base_url = getattr(_groq_client, "base_url", "unknown_url")
             logger.warning(
-                f"[ParserService] ⚠️ Model {model_name} gagal, mencoba selanjutnya... "
-                f"({type(exc).__name__}: {exc})"
+                f"[ParserService] ⚠️ Model {model_name} gagal di-hit pada URL {current_base_url}. "
+                f"Mencoba selanjutnya... ({type(exc).__name__}: {exc})"
             )
             last_error = exc
 
